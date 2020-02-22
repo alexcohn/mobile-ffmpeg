@@ -13,5 +13,5 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
+    - name: Build
+      run: export ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk-bundle && bash ./android.sh
