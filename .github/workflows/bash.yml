@@ -9,6 +9,21 @@ jobs:
     
     steps:
     - uses: actions/checkout@v2
-    - name: ./android.sh
-      run: export ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk-bundle && ./android.sh
+      
+    - name: generate AAR
+      env: 
+        ANDROID_NDK_ROOT: ${ANDROID_SDK_ROOT}/ndk-bundle
+      run: echo ${ANDROID_NDK_ROOT} ./android.sh
+      shell: bash
+      
+    - name: publish AAR
+      env:
+        GPR_USER: ${{ github.actor }}
+        GPR_API_KEY1: ${{ secrets.GPR_API_KEY }}
+        GPR_API_KEY:  ${{ github.token }}
+      run: |
+        echo GPR_USER=${GPR_USER}
+        echo GPR_API_KEY=${GPR_API_KEY}
+        ./gradlew app:publish
+      working-directory: android
       shell: bash
