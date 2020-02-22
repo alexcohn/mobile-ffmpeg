@@ -10,5 +10,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: echo
-      run: export ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk-bundle && ls -l && echo ${ANDROID_HOME}
+      run: export ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk-bundle && ./android.sh
       shell: bash
