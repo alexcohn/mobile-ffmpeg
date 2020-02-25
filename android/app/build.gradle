@@ -10,6 +10,9 @@ android {
         versionName "4.3.1"
         project.archivesBaseName = "mobile-ffmpeg"
         consumerProguardFiles 'proguard-rules.pro'
+        ndk {
+            abiFilters 'x86'
+        }
     }
 
     buildTypes {
@@ -19,9 +22,15 @@ android {
         }
     }
 
-    sourceSets {
-        main {
-            jniLibs.srcDirs = ["../libs"]
+//    sourceSets {
+//        main {
+//            jniLibs.srcDirs = ["../libs"]
+//        }
+//    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path "../jni/Android.mk"
         }
     }
 
@@ -37,6 +46,19 @@ task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
 }
 
+repositories {
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/alexcohn/mobile-ffmpeg")
+        credentials {
+            username = "alexcohn"
+            password = "2245d8ac79e12f3b5f06a17ccc8ef4c8ffe7fbe0"
+        }
+    }
+}
+
 dependencies {
     testImplementation "androidx.test.ext:junit:1.1.1"
+    implementation "com.android.ndk.thirdparty:jsoncpp:1.8.4-alpha-1"
+    implementation "com.android.ndk.thirdparty:ffmpeg:4.2"
 }

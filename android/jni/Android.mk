@@ -53,8 +53,9 @@ else
 endif
 LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter -Wno-switch -Wno-sign-compare -I${LOCAL_PATH}/../../prebuilt/android-$(TARGET_ARCH)/ffmpeg/include
 LOCAL_LDLIBS := -llog -lz -landroid
-LOCAL_SHARED_LIBRARIES := c++_shared libavfilter libavformat libavcodec libavutil libswresample libavdevice libswscale
+LOCAL_SHARED_LIBRARIES := libavfilter libavformat libavcodec libavutil libswresample libavdevice libswscale
 LOCAL_ARM_NEON := ${MY_ARM_NEON}
 include $(BUILD_SHARED_LIBRARY)
 
-$(call import-module, ffmpeg)
+$(call import-module,prefab/ffmpeg)
+# $(call import-module, ffmpeg)

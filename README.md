@@ -1,5 +1,7 @@
 # MobileFFmpeg [![Financial Contributors on Open Collective](https://opencollective.com/mobile-ffmpeg/all/badge.svg?label=financial+contributors)](https://opencollective.com/mobile-ffmpeg) ![GitHub release](https://img.shields.io/badge/release-v4.3.1-blue.svg) ![Bintray](https://img.shields.io/badge/bintray-v4.3.1-blue.svg) ![CocoaPods](https://img.shields.io/badge/pod-v4.3.1-blue.svg) [![Build Status](https://travis-ci.org/tanersener/mobile-ffmpeg.svg?branch=master)](https://travis-ci.org/tanersener/mobile-ffmpeg)
 
+![Workflow Status](workflows/C/C++%20CI/badge.svg)
+
 FFmpeg for Android, iOS and tvOS
 
 <img src="https://github.com/tanersener/mobile-ffmpeg/blob/master/docs/assets/mobile-ffmpeg-logo-v7.png" width="320">
