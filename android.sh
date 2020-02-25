@@ -549,38 +549,6 @@ print_rebuild_requested_libraries() {
     fi
 }
 
-build_application_mk() {
-    if [[ ! -z ${MOBILE_FFMPEG_LTS_BUILD} ]]; then
-        local LTS_BUILD_FLAG="-DMOBILE_FFMPEG_LTS "
-    fi
-
-    if [[ ${ENABLED_LIBRARIES[$LIBRARY_X265]} -eq 1 ]] || [[ ${ENABLED_LIBRARIES[$LIBRARY_TESSERACT]} -eq 1 ]] || [[ ${ENABLED_LIBRARIES[$LIBRARY_OPENH264]} -eq 1 ]] || [[ ${ENABLED_LIBRARIES[$LIBRARY_SNAPPY]} -eq 1 ]]; then
-        local APP_STL="c++_shared"
-    else
-        local APP_STL="none"
-
-        ${SED_INLINE} 's/c++_shared //g' ${BASEDIR}/android/jni/Android.mk 1>>${BASEDIR}/build.log 2>&1
-    fi
-
-    local BUILD_DATE="-DMOBILE_FFMPEG_BUILD_DATE=$(date +%Y%m%d 2>>${BASEDIR}/build.log)"
-
-    rm -f ${BASEDIR}/android/jni/Application.mk
-
-    cat > "${BASEDIR}/android/jni/Application.mk" << EOF
-APP_OPTIM := release
-
-APP_ABI := ${ANDROID_ARCHITECTURES}
-
-APP_STL := ${APP_STL}
-
-APP_PLATFORM := android-${API}
-
-APP_CFLAGS := -O3 -DANDROID ${LTS_BUILD_FLAG}${BUILD_DATE} -Wall -Wno-deprecated-declarations -Wno-pointer-sign -Wno-switch -Wno-unused-result -Wno-unused-variable
-
-APP_LDFLAGS := -Wl,--hash-style=both
-EOF
-}
-
 # ENABLE COMMON FUNCTIONS
 . ${BASEDIR}/build/android-common.sh
 
@@ -802,29 +770,20 @@ fi
 
 if [[ ! -z ${ANDROID_ARCHITECTURES} ]]; then
 
-    echo -n -e "\nmobile-ffmpeg: "
+    echo -e -n "\n\nCreating prefab AAR: "
 
-    build_application_mk
+    . ${BASEDIR}/build/android-prefab.sh
 
-    MOBILE_FFMPEG_AAR=${BASEDIR}/prebuilt/android-aar/mobile-ffmpeg
-
-    # BUILDING ANDROID ARCHIVE LIBRARY
-    rm -rf ${BASEDIR}/android/libs 1>>${BASEDIR}/build.log 2>&1
-
-    mkdir -p ${MOBILE_FFMPEG_AAR} 1>>${BASEDIR}/build.log 2>&1
-
-    cd ${BASEDIR}/android 1>>${BASEDIR}/build.log 2>&1
-
-    ${ANDROID_NDK_ROOT}/ndk-build -B 1>>${BASEDIR}/build.log 2>&1
-
-    if [ $? -eq 0 ]; then
-        echo "ok"
-    else
-        echo "failed"
+    if [ $? -ne 0 ]; then
+        echo -e "failed\n"
         exit 1
     fi
 
-    echo -e -n "\n\nCreating Android archive under prebuilt/android-aar: "
+    echo -e "Created mobile-ffmpeg Android archive successfully.\n" 1>>${BASEDIR}/build.log 2>&1
+
+    echo -e "ok\n"
+
+    echo -n -e "\nmobile-ffmpeg: "
 
     ./gradlew app:clean app:assembleRelease app:testReleaseUnitTest 1>>${BASEDIR}/build.log 2>&1
 
