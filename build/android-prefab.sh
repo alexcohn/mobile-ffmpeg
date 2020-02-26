@@ -1,8 +1,9 @@
 #!/bin/bash
 # expected to run from "${BASEDIR}/android"
 
-export FFMPEG_VERSION=`sed -e "s/\.git//" "${BASEDIR}/src/ffmpeg/RELEASE"` # used in build.gradle
-NDK_VERSION=20
+readonly FFMPEG_VERSION=$(sed -e "s/\.git//" "${BASEDIR}/src/ffmpeg/RELEASE")
+export FFMPEG_VERSION # used in build.gradle
+readonly NDK_VERSION=20 # see https://github.com/google/prefab/issues/74
 
 mkdir -p "build/publications/ffmpeg_aar" 1>>${BASEDIR}/build.log 2>&1
 
@@ -10,16 +11,8 @@ echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android" packa
 echo '  <uses-sdk android:minSdkVersion="'${API}'" android:targetSdkVersion="29"/>' >>build/publications/ffmpeg_aar/AndroidManifest.xml
 echo '</manifest>' >>build/publications/ffmpeg_aar/AndroidManifest.xml
 
-mkdir -p "build/publications/ffmpeg_aar/jars" 1>>${BASEDIR}/build.log 2>&1
-cd "build/publications/ffmpeg_aar/jars" 1>>${BASEDIR}/build.log 2>&1
-mkdir -p "META-INF" 1>>${BASEDIR}/build.log 2>&1
-touch "META-INF/MANIFEST.MF" 1>>${BASEDIR}/build.log 2>&1
-zip -r "classes.jar" * 1>>${BASEDIR}/build.log 2>&1
-rm -r "META-INF" 1>>${BASEDIR}/build.log 2>&1
-cd - 1>>${BASEDIR}/build.log 2>&1
-
 mkdir -p "build/publications/ffmpeg_aar/META-INF" 1>>${BASEDIR}/build.log 2>&1
-cp "${BASEDIR}/src/ffmpeg/COPYING.LGPLv2.1" "build/publications/ffmpeg_aar/META-INF/LICENSE" 1>>${BASEDIR}/build.log 2>&1
+cp "${BASEDIR}/src/ffmpeg/COPYING.LGPLv2.1" "build/publications/ffmpeg_aar/META-INF" 1>>${BASEDIR}/build.log 2>&1
 
 mkdir -p "build/publications/ffmpeg_aar/prefab" 1>>${BASEDIR}/build.log 2>&1
 echo -n '{"name":"ffmpeg","schema_version":1,"dependencies":[],"version":"'${FFMPEG_VERSION}'"}' >"build/publications/ffmpeg_aar/prefab/prefab.json"
@@ -46,11 +39,9 @@ prefab_abi_subdir "arm64"  "arm64-v8a"
 prefab_abi_subdir "x86"    "x86"
 prefab_abi_subdir "x86_64" "x86_64"
 
-cd build/publications/ffmpeg_aar 1>>${BASEDIR}/build.log 2>&1
-zip -r ../ffmpeg.aar * 1>>${BASEDIR}/build.log 2>&1
-cd - 1>>${BASEDIR}/build.log 2>&1
+(cd build/publications/ffmpeg_aar && zip -r ../ffmpeg.aar * 1>>${BASEDIR}/build.log 2>&1)
 rm -rf build/publications/ffmpeg_aar
 
 ./gradlew publish 1>>${BASEDIR}/build.log 2>&1
 
-echo -e "\nINFO: Completed publish at "$(date)"\n" 1>>${BASEDIR}/build.log 2>&1
+echo -e "\nINFO: Completed publish at $(date)\n" 1>>${BASEDIR}/build.log 2>&1
