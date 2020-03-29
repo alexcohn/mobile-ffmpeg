@@ -12,3 +12,6 @@
 /test-migration
 /test-name-parse
 /test-pthread
+/test-d1f48f11
+/test-issue107
+/test-issue110

@@ -2,3 +2,7 @@
 /x265/
 /xvidcore/
 /libvidstab/
+autom4te.cache/
+\#
+am--include-marker
+*config.h.in~
