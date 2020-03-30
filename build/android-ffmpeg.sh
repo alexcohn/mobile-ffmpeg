@@ -337,10 +337,15 @@ export LDFLAGS="${LDFLAGS}"
 ulimit -n 2048 1>>${BASEDIR}/build.log 2>&1
 
 # Workaround for issue #328
-rm -f ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
-cp ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
+#rm -f ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
+#cp ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
 
-./configure \
+mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/build/${LIB_NAME} || exit 1
+cd ${BASEDIR}/prebuilt/android-$(get_target_build)/build/${LIB_NAME} || exit 1
+
+CFLAGS+=" -Wno-deprecated-declarations"
+
+${BASEDIR}/src/${LIB_NAME}/configure \
     --cross-prefix="${TARGET_HOST}-" \
     --sysroot="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${TOOLCHAIN}/sysroot" \
     --prefix="${BASEDIR}/prebuilt/android-$(get_target_build)/${LIB_NAME}" \
@@ -401,6 +406,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Workaround for issue #328 # TODO(alexcohn): does it apply to Android at all?
+echo "" >>Makefile
+echo "libswscale/aarch64/hscale.o: ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S" >>Makefile
+echo '	aarch64-linux-android24-clang $(ASFLAGS) $(AS_DEPFLAGS) -c -o $@ $<' >>Makefile
+
 if [[ -z ${NO_OUTPUT_REDIRECTION} ]]; then
     make -j$(get_cpu_count) 1>>${BASEDIR}/build.log 2>&1
 
@@ -434,7 +444,7 @@ mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavuti
 mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavutil/aarch64
 mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavcodec/x86
 mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavcodec/arm
-cp -f ${BASEDIR}/src/ffmpeg/config.h ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include
+cp -f ./config.h ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include
 cp -f ${BASEDIR}/src/ffmpeg/libavcodec/mathops.h ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavcodec
 cp -f ${BASEDIR}/src/ffmpeg/libavcodec/x86/mathops.h ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavcodec/x86
 cp -f ${BASEDIR}/src/ffmpeg/libavcodec/arm/mathops.h ${BASEDIR}/prebuilt/android-$(get_target_build)/ffmpeg/include/libavcodec/arm
