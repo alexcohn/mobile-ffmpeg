@@ -336,12 +336,9 @@ export LDFLAGS="${LDFLAGS}"
 # USE HIGHER LIMITS FOR FFMPEG LINKING
 ulimit -n 2048 1>>${BASEDIR}/build.log 2>&1
 
-# Workaround for issue #328
-#rm -f ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
-#cp ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S ${BASEDIR}/src/${LIB_NAME}/libswscale/aarch64/hscale.S 1>>${BASEDIR}/build.log 2>&1
-
-mkdir -p ${BASEDIR}/prebuilt/android-$(get_target_build)/build/${LIB_NAME} || exit 1
-cd ${BASEDIR}/prebuilt/android-$(get_target_build)/build/${LIB_NAME} || exit 1
+BUILD_DIR=${BASEDIR}/android/build/${LIB_NAME}/$(get_target_build)
+mkdir -p ${BUILD_DIR} || exit 1
+cd ${BUILD_DIR} || exit 1
 
 CFLAGS+=" -Wno-deprecated-declarations"
 
