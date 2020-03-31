@@ -406,10 +406,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Workaround for issue #328 # TODO(alexcohn): does it apply to Android at all?
-echo "" >>Makefile
-echo "libswscale/aarch64/hscale.o: ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S" >>Makefile
-echo '	aarch64-linux-android24-clang $(ASFLAGS) $(AS_DEPFLAGS) -c -o $@ $<' >>Makefile
+# Workaround for issue #328
+if [ 0 -eq $(grep -c hscale.S Makefile) ]; then
+  echo "" >>Makefile
+  echo "libswscale/aarch64/hscale.o: ${BASEDIR}/tools/make/ffmpeg/libswscale/aarch64/hscale.S" >>Makefile
+  echo '	$(COMPILE_S)' >>Makefile
+fi
 
 if [[ -z ${NO_OUTPUT_REDIRECTION} ]]; then
     make -j$(get_cpu_count) 1>>${BASEDIR}/build.log 2>&1
