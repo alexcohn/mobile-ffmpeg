@@ -1,6 +1,5 @@
 apply plugin: 'com.android.library'
 
-def date = new Date().format("yyyyMMdd")
 android {
     compileSdkVersion 29
 
@@ -13,7 +12,7 @@ android {
         consumerProguardFiles 'proguard-rules.pro'
         externalNativeBuild {
             ndkBuild {
-                cFlags "-O3", "-DMOBILE_FFMPEG_BUILD_DATE=${date}", "-Wall", "-Wno-deprecated-declarations", "-Wno-pointer-sign", "-Wno-switch", "-Wno-unused-result", "-Wno-unused-variable"
+                arguments "BUILD_DATE=" + new Date().format("yyyyMMdd")
             }
         }
     }
@@ -58,6 +57,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.android.ndk.thirdparty:ffmpeg:4.2.5"
+//    implementation "com.android.ndk.thirdparty:ffmpeg:4.2.5"
+    implementation project(':local_prefab')
     testImplementation "androidx.test.ext:junit:1.1.1"
 }

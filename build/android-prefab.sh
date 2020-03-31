@@ -1,5 +1,5 @@
 #!/bin/bash
-# expected to run from "${BASEDIR}/android"
+cd "${BASEDIR}/android"
 
 readonly FFMPEG_VERSION=$(sed -e "s/\.git//" "${BASEDIR}/src/ffmpeg/RELEASE")
 export FFMPEG_VERSION # used in build.gradle
@@ -42,6 +42,6 @@ prefab_abi_subdir "x86_64" "x86_64"
 (cd build/publications/ffmpeg_aar && zip -r ../ffmpeg.aar * 1>>${BASEDIR}/build.log 2>&1)
 rm -rf build/publications/ffmpeg_aar
 
-./gradlew publish 1>>${BASEDIR}/build.log 2>&1
+#./gradlew publish 1>>${BASEDIR}/build.log 2>&1
 
 echo -e "\nINFO: Completed publish at $(date)\n" 1>>${BASEDIR}/build.log 2>&1

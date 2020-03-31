@@ -645,22 +645,9 @@ do
 done;
 
 # DETECT BUILD TYPE
-rm -f ${BASEDIR}/android/jni/Android.mk 1>>${BASEDIR}/build.log 2>&1
-rm -f ${BASEDIR}/android/app/build.gradle 1>>${BASEDIR}/build.log 2>&1
 if [[ ! -z ${BUILD_LTS} ]]; then
     enable_lts_build
     BUILD_TYPE_ID+="LTS "
-
-    cp ${BASEDIR}/tools/ndk/Android.lts.mk ${BASEDIR}/android/jni/Android.mk 1>>${BASEDIR}/build.log 2>&1
-    cp ${BASEDIR}/tools/release/android/build.lts.gradle ${BASEDIR}/android/app/build.gradle 1>>${BASEDIR}/build.log 2>&1
-else
-    cp ${BASEDIR}/tools/ndk/Android.mk ${BASEDIR}/android/jni/Android.mk 1>>${BASEDIR}/build.log 2>&1
-    cp ${BASEDIR}/tools/release/android/build.gradle ${BASEDIR}/android/app/build.gradle 1>>${BASEDIR}/build.log 2>&1
-
-    if [[ -z ${BUILD_FORCE} ]] && [[ ${ENABLED_ARCHITECTURES[${ARCH_ARM_V7A}]} -eq 1 ]]; then
-        echo -e "INFO: Disabled arm-v7a architecture which is not included in Main releases.\n" 1>>${BASEDIR}/build.log 2>&1
-        disable_arch "arm-v7a"
-    fi
 fi
 
 if [[ ! -z ${DISPLAY_HELP} ]]; then
@@ -722,7 +709,7 @@ export ORIGINAL_API=${API};
 for run_arch in {0..4}
 do
     if [[ ${ENABLED_ARCHITECTURES[$run_arch]} -eq 1 ]]; then
-        if [[ ( ${run_arch} -eq ${ARCH_ARM64_V8A} || ${run_arch} -eq ${ARCH_X86_64} ) && ${API} < 21 ]] ; then
+        if [[ ( ${run_arch} -eq ${ARCH_ARM64_V8A} || ${run_arch} -eq ${ARCH_X86_64} ) && ${API} -lt 21 ]] ; then
 
             # 64 bit ABIs supported after API 21
             export API=21
@@ -785,7 +772,7 @@ if [[ ! -z ${ANDROID_ARCHITECTURES} ]]; then
 
     echo -n -e "\nmobile-ffmpeg: "
 
-    ./gradlew app:clean app:assembleRelease app:testReleaseUnitTest 1>>${BASEDIR}/build.log 2>&1
+    cd ${BASEDIR}/android && ./gradlew app:clean app:assembleRelease app:testReleaseUnitTest 1>>${BASEDIR}/build.log 2>&1
 
     if [ $? -ne 0 ]; then
         echo -e "failed\n"

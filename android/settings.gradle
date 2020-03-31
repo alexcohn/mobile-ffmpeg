@@ -1,7 +1,13 @@
 include ':app', ':test-app'
 include ':ffmpeg'
 project(':ffmpeg').projectDir = new File('../src/ffmpeg')
+include ':lib sources'
+project(':lib sources').projectDir = new File('../src')
 include ':build scripts'
 project(':build scripts').projectDir = new File('../build')
 include ':outputs'
 project(':outputs').projectDir = new File('../prebuilt')
+include ':root'
+project(':root').projectDir = new File('..')
+
+include ':local_prefab'
