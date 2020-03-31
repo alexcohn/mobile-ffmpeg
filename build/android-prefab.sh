@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "${BASEDIR}/android"
+cd "${BASEDIR}/android" || exit 1
 
 readonly FFMPEG_VERSION=$(sed -e "s/\.git//" "${BASEDIR}/src/ffmpeg/RELEASE")
 export FFMPEG_VERSION # used in build.gradle
