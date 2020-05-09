@@ -27,8 +27,33 @@ prefab_abi_subdir() {
     if [ -f "${SRC}/lib/${MODULE}.so" ]; then
       mkdir -p "${DEST}" 1>>${BASEDIR}/build.log 2>&1
       cp "${SRC}/lib/${MODULE}.so" "${DEST}" 1>>${BASEDIR}/build.log 2>&1
+
+      case ${MODULE} in
+        libavcodec)
+          DEPS=":libavutil :libswresample"
+          ;;
+        libavdevice)
+          DEPS=":libavutil :libavformat"
+          ;;
+        libavfilter)
+          DEPS=":libavutil :libavcodec :libswscale :libavformat :libswresample"
+          ;;
+        libavformat)
+          DEPS=":libavutil :libavcodec"
+          ;;
+        libswresample)
+          DEPS=":libavutil"
+          ;;
+        libswscale)
+          DEPS=":libavutil"
+          ;;
+        libavutil)
+          DEPS=""
+          ;;
+      esac
+
       echo -n '{"abi":"'${ABI}'","api":'${API}',"ndk":'${NDK_VERSION}',"stl":"none"}' >"${DEST}/abi.json" 2>>${BASEDIR}/build.log
-      echo -n '{"export_libraries":[],"library_name":"'${MODULE}'"}' >"${DEST}/../../module.json" 2>>${BASEDIR}/build.log
+      echo -n '{"export_libraries":['${DEPS}'],"library_name":"'${MODULE}'"}' >"${DEST}/../../module.json" 2>>${BASEDIR}/build.log
     fi
   done
   cp -R ${SRC}/include ${DEST} 1>>${BASEDIR}/build.log 2>&1 # to last module
