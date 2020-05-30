@@ -32,6 +32,7 @@ extern const URLProtocol ff_data_protocol;
 extern const URLProtocol ff_ffrtmpcrypt_protocol;
 extern const URLProtocol ff_ffrtmphttp_protocol;
 extern const URLProtocol ff_file_protocol;
+extern const URLProtocol ff_saf_protocol;
 extern const URLProtocol ff_ftp_protocol;
 extern const URLProtocol ff_gopher_protocol;
 extern const URLProtocol ff_hls_protocol;
