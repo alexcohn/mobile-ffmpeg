@@ -811,16 +811,10 @@ JNIEXPORT int JNICALL Java_com_arthenica_mobileffmpeg_Config_runTranscode(JNIEnv
                         &input_codec_context))
         goto cleanup;
 
-    __android_log_print(ANDROID_LOG_INFO, "transcode_aac", "Input format: %s.\n",
-                        input_format_context->iformat->long_name);
-
     /* Open the output file for writing. */
     if (open_output_file(out_filename, input_codec_context,
                          &output_format_context, &output_codec_context))
         goto cleanup;
-
-    __android_log_print(ANDROID_LOG_INFO, "transcode_aac", "Output format: %s.\n",
-                        output_format_context->oformat->long_name);
 
     /* Initialize the resampler to be able to convert audio sample formats. */
     if (init_resampler(input_codec_context, output_codec_context,

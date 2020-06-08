@@ -134,21 +134,19 @@ public class ScopedStorageTabFragment extends Fragment {
         try {
             ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
 
-            Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
+            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
             fd = parcelFileDescriptor.getFd();
         } catch (Throwable e) {
-            Log.e("SAF", e.getMessage(), e);
+            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
         }
 
-        final String ffprobeCommand = "-hide_banner saf:" + fd + "/" + videoUri.getLastPathSegment();
+        final String ffprobeCommand = "-hide_banner \"saf:" + fd + "/" + videoUri.getLastPathSegment() + "\"";
 
         Log.d(MainActivity.TAG, "Testing FFprobe COMMAND synchronously.");
 
         Log.d(MainActivity.TAG, String.format("FFprobe process started with arguments\n\'%s\'", ffprobeCommand));
 
         int result = FFprobe.execute(ffprobeCommand);
-
-        Log.w("SAF", "result: " + result);
 
         Log.d(MainActivity.TAG, String.format("FFprobe process exited with rc %d", result));
 
@@ -166,31 +164,22 @@ public class ScopedStorageTabFragment extends Fragment {
         try {
             parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
 
-            Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
+            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
             inFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + videoUri.getLastPathSegment();
         } catch (Throwable e) {
-            Log.e("SAF", e.getMessage(), e);
+            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
         }
 
-        if (outUri.getScheme().equals("file")) {
-            outFilename = outUri.toString();
-        }
-        else {
-            try {
-                parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(outUri, "w");
-
-                Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
-                outFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + outUri.getLastPathSegment();
-            } catch (Throwable e) {
-                Log.e("SAF", e.getMessage(), e);
-            }
+        try {
+            parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(outUri, "w");
+            outFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + outUri.getLastPathSegment();
+        } catch (Throwable e) {
+            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + outUri, e);
         }
 
         Log.d(MainActivity.TAG, "Testing transcode(" + inFilename + ", " + outFilename + ")");
 
         int result = Config.runTranscode(inFilename, outFilename);
-
-        Log.w("SAF", "result: " + result);
 
         Log.d(MainActivity.TAG, String.format("Transcode exited with rc %d", result));
 
@@ -222,22 +211,16 @@ public class ScopedStorageTabFragment extends Fragment {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_SAF_FFPROBE && resultCode == RESULT_OK && data != null) {
             videoUri = data.getData();
-            Log.w("SAF", "videoUri " + videoUri);
             runFFprobe();
         } else if (requestCode == REQUEST_SAF_TRANSCODE_IN && resultCode == RESULT_OK && data != null) {
             videoUri = data.getData();
-            Log.w("SAF", "videoUri " + videoUri);
-
-//            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-//                    .setType("audio/mpeg")
-//                    .putExtra(Intent.EXTRA_TITLE, "transcode.mp3")
-//                    .addCategory(Intent.CATEGORY_OPENABLE);
-//            startActivityForResult(intent, REQUEST_SAF_TRANSCODE_OUT);
-//        } else if (requestCode == REQUEST_SAF_TRANSCODE_OUT && resultCode == RESULT_OK && data != null) {
-//            outUri = data.getData();
-            outUri = Uri.fromFile(new File(getContext().getFilesDir(), "transcode.mp3"));
-            Log.w("SAF", "outUri " + outUri);
-
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .setType("audio/*")
+                    .putExtra(Intent.EXTRA_TITLE, "transcode.aac")
+                    .addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(intent, REQUEST_SAF_TRANSCODE_OUT);
+        } else if (requestCode == REQUEST_SAF_TRANSCODE_OUT && resultCode == RESULT_OK && data != null) {
+            outUri = data.getData();
             runTranscode();
         } else {
             super.onActivityResult(requestCode, resultCode, data);
