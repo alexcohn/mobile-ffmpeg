@@ -436,7 +436,12 @@ static int saf_open(URLContext *h, const char *filename, int flags)
 #ifdef O_BINARY
     access |= O_BINARY;
 #endif
-    fd = atoi(filename);
+
+    fd = 0;
+    for (const char *pdigit = filename; av_isdigit(*pdigit); pdigit++) {
+        fd = 10*fd + *pdigit - '0';
+    }
+    fd = dup(fd);
 
     if (fd == -1)
         return AVERROR(errno);
