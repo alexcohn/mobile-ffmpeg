@@ -27,6 +27,7 @@ import android.text.method.ScrollingMovementMethod;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -39,6 +40,7 @@ import com.arthenica.mobileffmpeg.FFprobe;
 import com.arthenica.mobileffmpeg.LogCallback;
 import com.arthenica.mobileffmpeg.LogMessage;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
@@ -48,9 +50,11 @@ public class ScopedStorageTabFragment extends Fragment {
 
     private EditText commandText;
     private TextView outputText;
-    private ParcelFileDescriptor parcelFileDescriptor;
-    public Uri videoUri;
-    private static final int REQUEST_SAF = 11;
+    private Uri videoUri;
+    private Uri outUri;
+    private static final int REQUEST_SAF_FFPROBE = 11;
+    private static final int REQUEST_SAF_TRANSCODE_IN = 12;
+    private static final int REQUEST_SAF_TRANSCODE_OUT = 13;
 
     public ScopedStorageTabFragment() {
         super(R.layout.fragment_command_tab);
@@ -63,10 +67,20 @@ public class ScopedStorageTabFragment extends Fragment {
         commandText = view.findViewById(R.id.commandText);
         commandText.setVisibility(View.GONE);
 
-        View runFFmpegButton = view.findViewById(R.id.runFFmpegButton);
-        runFFmpegButton.setVisibility(View.GONE);
+        Button runFFmpegButton = view.findViewById(R.id.runFFmpegButton);
+        runFFmpegButton.setText(R.string.command_run_transcode_button_text);
+        runFFmpegButton.setOnClickListener(new View.OnClickListener() {
 
-        View runFFprobeButton = view.findViewById(R.id.runFFprobeButton);
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                        .setType("video/*")
+                        .addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult(intent, REQUEST_SAF_TRANSCODE_IN);
+            }
+        });
+
+        Button runFFprobeButton = view.findViewById(R.id.runFFprobeButton);
         runFFprobeButton.setOnClickListener(new View.OnClickListener() {
 
             @Override
@@ -74,7 +88,7 @@ public class ScopedStorageTabFragment extends Fragment {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
                         .setType("video/*")
                         .addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, REQUEST_SAF);
+                startActivityForResult(intent, REQUEST_SAF_FFPROBE);
             }
         });
 
@@ -113,25 +127,20 @@ public class ScopedStorageTabFragment extends Fragment {
         });
     }
 
-    public void runFFprobe() {
+    private void runFFprobe() {
         clearLog();
 
         int fd = -1;
-        ParcelFileDescriptor.AutoCloseInputStream is = null;
-        byte[] bytes = new byte[4];
         try {
-            parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
+            ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
 
             Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
             fd = parcelFileDescriptor.getFd();
-//            is = new ParcelFileDescriptor.AutoCloseInputStream(parcelFileDescriptor.dup());
-//            is.read(bytes);
-//            Log.w("SAF", "" + (char)bytes[0] + (char)bytes[1] + (char)bytes[2] + (char)bytes[3]);
         } catch (Throwable e) {
             Log.e("SAF", e.getMessage(), e);
         }
 
-        final String ffprobeCommand = "-hide_banner saf:" + fd;
+        final String ffprobeCommand = "-hide_banner saf:" + fd + "/" + videoUri.getLastPathSegment();
 
         Log.d(MainActivity.TAG, "Testing FFprobe COMMAND synchronously.");
 
@@ -147,15 +156,53 @@ public class ScopedStorageTabFragment extends Fragment {
             Popup.show(requireContext(), "Command failed. Please check output for the details.");
         }
         videoUri = null;
-        if (is != null)
+    }
+
+    private void runTranscode() {
+        clearLog();
+
+        String inFilename = "", outFilename = "";
+        ParcelFileDescriptor parcelFileDescriptor;
         try {
-            is.getChannel().position(1);
-            is.read(bytes);
-            Log.w("SAF", "" + (char)bytes[0] + (char)bytes[1] + (char)bytes[2] + (char)bytes[3]);
-        } catch (IOException e) {
-            Log.e("SAF", "read after", e);
+            parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
+
+            Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
+            inFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + videoUri.getLastPathSegment();
+        } catch (Throwable e) {
+            Log.e("SAF", e.getMessage(), e);
         }
 
+        if (outUri.getScheme().equals("file")) {
+            outFilename = outUri.toString();
+        }
+        else {
+            try {
+                parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(outUri, "w");
+
+                Log.w("SAF", "size: " + parcelFileDescriptor.getStatSize());
+                outFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + outUri.getLastPathSegment();
+            } catch (Throwable e) {
+                Log.e("SAF", e.getMessage(), e);
+            }
+        }
+
+        Log.d(MainActivity.TAG, "Testing transcode(" + inFilename + ", " + outFilename + ")");
+
+        int result = Config.runTranscode(inFilename, outFilename);
+
+        Log.w("SAF", "result: " + result);
+
+        Log.d(MainActivity.TAG, String.format("Transcode exited with rc %d", result));
+
+        if (result != 0) {
+            Popup.show(requireContext(), "Command failed. Please check output for the details.");
+        }
+
+        videoUri = outUri;
+        outUri = null;
+        if (result == 0) {
+            runFFprobe();
+        }
     }
 
     private void setActive() {
@@ -173,10 +220,25 @@ public class ScopedStorageTabFragment extends Fragment {
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_SAF && resultCode == RESULT_OK && data != null) {
+        if (requestCode == REQUEST_SAF_FFPROBE && resultCode == RESULT_OK && data != null) {
             videoUri = data.getData();
             Log.w("SAF", "videoUri " + videoUri);
             runFFprobe();
+        } else if (requestCode == REQUEST_SAF_TRANSCODE_IN && resultCode == RESULT_OK && data != null) {
+            videoUri = data.getData();
+            Log.w("SAF", "videoUri " + videoUri);
+
+//            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+//                    .setType("audio/mpeg")
+//                    .putExtra(Intent.EXTRA_TITLE, "transcode.mp3")
+//                    .addCategory(Intent.CATEGORY_OPENABLE);
+//            startActivityForResult(intent, REQUEST_SAF_TRANSCODE_OUT);
+//        } else if (requestCode == REQUEST_SAF_TRANSCODE_OUT && resultCode == RESULT_OK && data != null) {
+//            outUri = data.getData();
+            outUri = Uri.fromFile(new File(getContext().getFilesDir(), "transcode.mp3"));
+            Log.w("SAF", "outUri " + outUri);
+
+            runTranscode();
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
