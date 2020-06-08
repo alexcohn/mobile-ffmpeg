@@ -687,4 +687,11 @@ public class Config {
      */
     native static String getNativeLastCommandOutput();
 
+    /**
+     * <p>Run transcode_aac from doc/examples.
+     *
+     * @return zero if transcoding was successfull
+     */
+    public native static int runTranscode(final String inFilename, final String outFilename);
+
 }
