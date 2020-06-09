@@ -413,14 +413,13 @@ const URLProtocol ff_pipe_protocol = {
 
 #endif /* CONFIG_PIPE_PROTOCOL */
 
+extern int get_fd_from_content(const char *content, int access);
 static int saf_open(URLContext *h, const char *filename, int flags)
 {
     FileContext *c = h->priv_data;
     int access;
     int fd;
     struct stat st;
-
-    av_strstart(filename, "saf:", &filename);
 
     if (flags & AVIO_FLAG_WRITE && flags & AVIO_FLAG_READ) {
         access = O_CREAT | O_RDWR;
@@ -437,13 +436,8 @@ static int saf_open(URLContext *h, const char *filename, int flags)
     access |= O_BINARY;
 #endif
 
-    fd = 0;
-    for (const char *pdigit = filename; av_isdigit(*pdigit); pdigit++) {
-        fd = 10*fd + *pdigit - '0';
-    }
-    fd = dup(fd);
-
-    if (fd == -1)
+    fd = get_fd_from_content(filename, access);
+    if (fd < 0)
         return AVERROR(errno);
     c->fd = fd;
 
@@ -461,7 +455,7 @@ static int saf_open(URLContext *h, const char *filename, int flags)
 }
 
 const URLProtocol ff_saf_protocol = {
-    .name                = "saf",
+    .name                = "content",
     .url_open            = saf_open,
     .url_read            = file_read,
     .url_write           = file_write,
@@ -470,6 +464,5 @@ const URLProtocol ff_saf_protocol = {
     .url_get_file_handle = file_get_handle,
     .url_check           = file_check,
     .priv_data_size      = sizeof(FileContext),
-    .priv_data_class     = &file_class,
-    .default_whitelist   = "saf"
+    .priv_data_class     = &file_class
 };

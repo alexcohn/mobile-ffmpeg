@@ -92,6 +92,9 @@ struct CallbackData *callbackDataTail;
 /** Global reference to the virtual machine running */
 static JavaVM *globalVm;
 
+/** Global application context */
+static jobject *appContext;
+
 /** Global reference of Config class in Java */
 static jclass configClass;
 
@@ -547,6 +550,45 @@ void *callbackThreadFunction() {
 }
 
 /**
+ * Kudos to Harlan Chen, https://stackoverflow.com/a/46871051/192373
+ */
+static jobject get_global_context(JNIEnv *env) {
+    jclass activityThread = (*env)->FindClass(env, "android/app/ActivityThread");
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_global_context FindClass %s exception", "android/app/ActivityThread");
+        return NULL;
+    }
+    jmethodID currentActivityThread = (*env)->GetStaticMethodID(env, activityThread, "currentActivityThread", "()Landroid/app/ActivityThread;");
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_global_context find %s exception", "currentActivityThread");
+        return NULL;
+    }
+    jobject at = (*env)->CallStaticObjectMethod(env, activityThread, currentActivityThread);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_global_context %s %s exception", "android/app/ActivityThread", "currentActivityThread");
+        return NULL;
+    }
+    jmethodID getApplication = (*env)->GetMethodID(env, activityThread, "getApplication", "()Landroid/app/Application;");
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_global_context find %s exception", "getApplication");
+        return NULL;
+    }
+    jobject context = (*env)->CallObjectMethod(env, at, getApplication);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_global_context %s exception", "getApplication");
+        return NULL;
+    }
+
+    return (*env)->NewGlobalRef(env, context);
+    // TODO: release local refs
+}
+
+/**
  * Called when 'mobileffmpeg' native library is loaded.
  *
  * @param vm pointer to the running virtual machine
@@ -614,7 +656,175 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     monitorInit();
     logInit();
 
+    appContext = get_global_context(env);
+    LOGI("set appContext=%p", appContext);
+
     return JNI_VERSION_1_6;
+}
+
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
+static jmethodID get_static_method_id(JNIEnv *env, const char *class_name, const char *name, const char *signature, jclass *global_clazz) {
+    if (!(*global_clazz)) {
+        jclass clazz = (*env)->FindClass(env, class_name);
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionClear(env);
+            LOGE("GetStaticMethodID for %s threw an exception", class_name);
+            return NULL;
+        }
+        if (!clazz) {
+            LOGE("class %s not found", class_name);
+            return NULL;
+        }
+        *global_clazz = (*env)->NewGlobalRef(env, clazz);
+        (*env)->DeleteLocalRef(env, clazz);
+    }
+    jmethodID method_id = (*env)->GetStaticMethodID(env, *global_clazz, name, signature);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("GetStaticMethodID for %s.%s %s threw an exception", class_name, name, signature);
+        return NULL;
+    }
+    return method_id;
+}
+
+static jmethodID get_method_id(JNIEnv *env, const char *class_name, const char *name, const char *signature) {
+    jclass clazz = (*env)->FindClass(env, class_name);
+    if (!clazz) {
+        LOGE("class %s not found", class_name);
+        return NULL;
+    }
+    jmethodID method_id = (*env)->GetMethodID(env, clazz, name, signature);
+    (*env)->DeleteLocalRef(env, clazz);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("GetMethodID for %s.%s %s threw an exception", class_name, name, signature);
+        return NULL;
+    }
+    return method_id;
+}
+
+int get_fd_from_content(const char *content, int access) {
+
+    static jclass    android_net_Uri;
+    static jmethodID android_net_Uri_parse = 0;
+    static jmethodID android_content_Context_getContentResolver = 0;
+    static jmethodID android_content_ContentResolver_openFileDescriptor = 0;
+    static jmethodID android_os_ParcelFileDescriptor_getFd = 0;
+
+    int fd = -1;
+
+    JNIEnv *env;
+    int ret = (*globalVm)->GetEnv(globalVm, (void **)&env, JNI_VERSION_1_6);
+    if (!env || ret != JNI_OK) {
+        LOGE("get_fd_from_content" " cannot get env");
+        return -1;
+    }
+
+    if (android_content_Context_getContentResolver == 0) {
+        if ((android_net_Uri_parse = get_static_method_id(env, "android/net/Uri", "parse", "(Ljava/lang/String;)Landroid/net/Uri;", &android_net_Uri)) == 0) {
+            LOGE("get_fd_from_content" " cannot init android/net/Uri.parse");
+            return -1;
+        };
+        if ((android_content_Context_getContentResolver = get_method_id(env, "android/content/Context", "getContentResolver", "()Landroid/content/ContentResolver;")) == 0) {
+            LOGE("get_fd_from_content" " cannot init android/content/Context.getContentResolver");
+            return -1;
+        };
+        if ((android_content_ContentResolver_openFileDescriptor = get_method_id(env, "android/content/ContentResolver", "openFileDescriptor", "(Landroid/net/Uri;Ljava/lang/String;)Landroid/os/ParcelFileDescriptor;")) == 0) {
+            LOGE("get_fd_from_content" " cannot init android/content/ContentResolver.openFileDescriptor");
+            return -1;
+        };
+        if ((android_os_ParcelFileDescriptor_getFd = get_method_id(env, "android/os/ParcelFileDescriptor", "getFd", "()I")) == 0) {
+            LOGE("get_fd_from_content" " cannot init android/os/ParcelFileDescriptor.getFd");
+            return -1;
+        };
+    }
+
+    const char *fmode = "r";
+    if (access & (O_WRONLY | O_RDWR)) {
+        fmode = "w";
+    }
+
+    LOGI("get_fd_from_content" " \"%s\" fd from %s", fmode, content);
+
+    jstring uriString = (*env)->NewStringUTF(env, content);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get uriString from %s", content);
+        return -1;
+    }
+    if (!uriString) {
+        LOGE("get_fd_from_content" " cannot get uriString from %s", content);
+        return -1;
+    }
+
+    jstring fmodeString = (*env)->NewStringUTF(env, fmode);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get fmodeString from %s", content);
+        return -1;
+    }
+    if (!fmodeString) {
+        LOGE("get_fd_from_content" " cannot get fmodeString from %s", content);
+        return -1;
+    }
+
+    jobject uri = (*env)->CallStaticObjectMethod(env, android_net_Uri, android_net_Uri_parse, uriString);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get uri from %p", uriString);
+        return -1;
+    }
+    if (!uri) {
+        LOGE("get_fd_from_content" " cannot get uri from %p", uriString);
+        return -1;
+    }
+
+    LOGI("get_fd_from_content" " have uri=%p", uri);
+    LOGI("get_fd_from_content" " to get contentResolver from %p", appContext);
+
+    jobject contentResolver = (*env)->CallObjectMethod(env, appContext, android_content_Context_getContentResolver);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get contentResolver from %p", appContext);
+        return -1;
+    }
+    if (!contentResolver) {
+        LOGE("get_fd_from_content" " cannot get contentResolver from %p", appContext);
+        return -1;
+    }
+
+    jobject parcelFileDescriptor = (*env)->CallObjectMethod(env, contentResolver, android_content_ContentResolver_openFileDescriptor, uri, fmodeString);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get parcelFileDescriptor from %p", contentResolver);
+        return -1;
+    }
+    if (!parcelFileDescriptor) {
+        LOGE("get_fd_from_content" " cannot get parcelFileDescriptor from %p", contentResolver);
+        return -1;
+    }
+
+    fd = (*env)->CallIntMethod(env, parcelFileDescriptor, android_os_ParcelFileDescriptor_getFd);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        LOGE("get_fd_from_content" " cannot get fd from %p", parcelFileDescriptor);
+        return -1;
+    }
+    if (fd < 0) {
+        LOGE("get_fd_from_content" " cannot get fd from %p", parcelFileDescriptor);
+        return -1;
+    }
+
+    (*env)->DeleteLocalRef(env, uriString);
+    (*env)->DeleteLocalRef(env, fmodeString);
+    (*env)->DeleteLocalRef(env, uri);
+    (*env)->DeleteLocalRef(env, contentResolver);
+    (*env)->DeleteLocalRef(env, parcelFileDescriptor);
+
+    return fd;
 }
 
 /**
