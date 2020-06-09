@@ -29,8 +29,6 @@
  */
 
 #include <stdio.h>
-#include <jni.h>
-#include <android/log.h>
 
 #include "libavformat/avformat.h"
 #include "libavformat/avio.h"
@@ -45,12 +43,14 @@
 
 #include "libswresample/swresample.h"
 
+#include "mobileffmpeg.h"
+static int audio_stream_idx = -1;
+
 /* The output bit rate in bit/s */
 #define OUTPUT_BIT_RATE 96000
 /* The number of output channels */
 #define OUTPUT_CHANNELS 2
 /* The index of audio stream that will be transcoded */
-static int audio_stream_idx = -1;
 
 /**
  * Open an input file and the required decoder.
@@ -70,7 +70,7 @@ static int open_input_file(const char *filename,
     /* Open the input file to read from it. */
     if ((error = avformat_open_input(input_format_context, filename, NULL,
                                      NULL)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open input file '%s' (error '%s')\n",
+        LOGE("Could not open input file '%s' (error '%s')\n",
                 filename, av_err2str(error));
         *input_format_context = NULL;
         return error;
@@ -78,7 +78,7 @@ static int open_input_file(const char *filename,
 
     /* Get information on the input file (number of streams etc.). */
     if ((error = avformat_find_stream_info(*input_format_context, NULL)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open find stream info (error '%s')\n",
+        LOGE("Could not open find stream info (error '%s')\n",
                 av_err2str(error));
         avformat_close_input(input_format_context);
         return error;
@@ -88,12 +88,12 @@ static int open_input_file(const char *filename,
         if ((*input_format_context)->streams[audio_stream_idx]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
             break;
 
-        __android_log_print(ANDROID_LOG_INFO, "transcode_aac", "Skip non-audio input stream %d\n", audio_stream_idx);
+        LOGI("Skip non-audio input stream %d\n", audio_stream_idx);
     }
 
     /* Make sure that there is at least one audio stream in the input file. */
     if (audio_stream_idx >= (*input_format_context)->nb_streams) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not find an audio (error '%s')\n",
+        LOGE("Could not find an audio (error '%s')\n",
                 av_err2str(error));
         avformat_close_input(input_format_context);
         return AVERROR_EXIT;
@@ -101,7 +101,7 @@ static int open_input_file(const char *filename,
 
     /* Find a decoder for the audio stream. */
     if (!(input_codec = avcodec_find_decoder((*input_format_context)->streams[audio_stream_idx]->codecpar->codec_id))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not find input codec\n");
+        LOGE("Could not find input codec\n");
         avformat_close_input(input_format_context);
         return AVERROR_EXIT;
     }
@@ -109,7 +109,7 @@ static int open_input_file(const char *filename,
     /* Allocate a new decoding context. */
     avctx = avcodec_alloc_context3(input_codec);
     if (!avctx) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate a decoding context\n");
+        LOGE("Could not allocate a decoding context\n");
         avformat_close_input(input_format_context);
         return AVERROR(ENOMEM);
     }
@@ -124,7 +124,7 @@ static int open_input_file(const char *filename,
 
     /* Open the decoder for the audio stream to use it later. */
     if ((error = avcodec_open2(avctx, input_codec, NULL)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open input codec (error '%s')\n",
+        LOGE("Could not open input codec (error '%s')\n",
                 av_err2str(error));
         avcodec_free_context(&avctx);
         avformat_close_input(input_format_context);
@@ -161,14 +161,14 @@ static int open_output_file(const char *filename,
     /* Open the output file to write to it. */
     if ((error = avio_open(&output_io_context, filename,
                            AVIO_FLAG_WRITE)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open output file '%s' (error '%s')\n",
+        LOGE("Could not open output file '%s' (error '%s')\n",
                 filename, av_err2str(error));
         return error;
     }
 
     /* Create a new format context for the output container format. */
     if (!(*output_format_context = avformat_alloc_context())) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate output format context\n");
+        LOGE("Could not allocate output format context\n");
         return AVERROR(ENOMEM);
     }
 
@@ -178,19 +178,19 @@ static int open_output_file(const char *filename,
     /* Guess the desired container format based on the file extension. */
     if (!((*output_format_context)->oformat = av_guess_format(NULL, filename,
                                                               NULL))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not find output file format\n");
+        LOGE("Could not find output file format\n");
         goto cleanup;
     }
 
     if (!((*output_format_context)->url = av_strdup(filename))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate url.\n");
+        LOGE("Could not allocate url.\n");
         error = AVERROR(ENOMEM);
         goto cleanup;
     }
 
     /* Find the encoder to be used by its name. */
     if (!(output_codec = avcodec_find_encoder((*output_format_context)->oformat->audio_codec))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not find an encoder for %s(%d).\n",
+        LOGE("Could not find an encoder for %s(%d).\n",
                             (*output_format_context)->oformat->long_name,
                             (*output_format_context)->oformat->audio_codec);
         goto cleanup;
@@ -198,14 +198,14 @@ static int open_output_file(const char *filename,
 
     /* Create a new audio stream in the output file container. */
     if (!(stream = avformat_new_stream(*output_format_context, NULL))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not create new stream\n");
+        LOGE("Could not create new stream\n");
         error = AVERROR(ENOMEM);
         goto cleanup;
     }
 
     avctx = avcodec_alloc_context3(output_codec);
     if (!avctx) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate an encoding context\n");
+        LOGE("Could not allocate an encoding context\n");
         error = AVERROR(ENOMEM);
         goto cleanup;
     }
@@ -232,14 +232,14 @@ static int open_output_file(const char *filename,
 
     /* Open the encoder for the audio stream to use it later. */
     if ((error = avcodec_open2(avctx, output_codec, NULL)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open output codec (error '%s')\n",
+        LOGE("Could not open output codec (error '%s')\n",
                 av_err2str(error));
         goto cleanup;
     }
 
     error = avcodec_parameters_from_context(stream->codecpar, avctx);
     if (error < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not initialize stream parameters\n");
+        LOGE("Could not initialize stream parameters\n");
         goto cleanup;
     }
 
