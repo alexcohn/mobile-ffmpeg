@@ -35,6 +35,8 @@
  * Format register and lookup
  */
 
+extern int match_ext_from_content(const char *filename, const char *extensions);
+
 int av_match_ext(const char *filename, const char *extensions)
 {
     const char *ext;
@@ -45,7 +47,7 @@ int av_match_ext(const char *filename, const char *extensions)
     ext = strrchr(filename, '.');
     if (ext)
         return av_match_name(ext + 1, extensions);
-    return 0;
+    return match_ext_from_content(filename, extensions);
 }
 
 ff_const59 AVOutputFormat *av_guess_format(const char *short_name, const char *filename,
