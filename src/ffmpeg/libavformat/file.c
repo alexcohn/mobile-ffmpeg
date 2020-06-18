@@ -412,3 +412,57 @@ const URLProtocol ff_pipe_protocol = {
 };
 
 #endif /* CONFIG_PIPE_PROTOCOL */
+
+extern int get_fd_from_content(const char *content, int access);
+static int saf_open(URLContext *h, const char *filename, int flags)
+{
+    FileContext *c = h->priv_data;
+    int access;
+    int fd;
+    struct stat st;
+
+    if (flags & AVIO_FLAG_WRITE && flags & AVIO_FLAG_READ) {
+        access = O_CREAT | O_RDWR;
+        if (c->trunc)
+            access |= O_TRUNC;
+    } else if (flags & AVIO_FLAG_WRITE) {
+        access = O_CREAT | O_WRONLY;
+        if (c->trunc)
+            access |= O_TRUNC;
+    } else {
+        access = O_RDONLY;
+    }
+#ifdef O_BINARY
+    access |= O_BINARY;
+#endif
+
+    fd = get_fd_from_content(filename, access);
+    if (fd < 0)
+        return AVERROR(errno);
+    c->fd = fd;
+
+    h->is_streamed = !fstat(fd, &st) && S_ISFIFO(st.st_mode);
+
+    /* Buffer writes more than the default 32k to improve throughput especially
+     * with networked file systems */
+    if (!h->is_streamed && flags & AVIO_FLAG_WRITE)
+        h->min_packet_size = h->max_packet_size = 262144;
+
+    if (c->seekable >= 0)
+        h->is_streamed = !c->seekable;
+
+    return 0;
+}
+
+const URLProtocol ff_saf_protocol = {
+    .name                = "content",
+    .url_open            = saf_open,
+    .url_read            = file_read,
+    .url_write           = file_write,
+    .url_seek            = file_seek,
+    .url_close           = file_close,
+    .url_get_file_handle = file_get_handle,
+    .url_check           = file_check,
+    .priv_data_size      = sizeof(FileContext),
+    .priv_data_class     = &file_class
+};

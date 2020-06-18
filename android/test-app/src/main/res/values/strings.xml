@@ -6,9 +6,11 @@
     <string name="audio_tab">AUDIO</string>
     <string name="subtitle_tab">SUBTITLE</string>
     <string name="vidstab_tab">VID.STAB</string>
+    <string name="scoped_storage_tab">SAF</string>
     <string name="pipe_tab">PIPE</string>
     <string name="command_text_input_placeholder">Enter command</string>
     <string name="command_run_ffmpeg_button_text">RUN FFMPEG</string>
+    <string name="command_run_transcode_button_text">TRANSCODE</string>
     <string name="command_run_ffprobe_button_text">RUN FFPROBE</string>
     <string name="video_encode_button_text">ENCODE</string>
     <string name="video_create_button_text">CREATE</string>
