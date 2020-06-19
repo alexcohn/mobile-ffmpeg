@@ -413,6 +413,7 @@ const URLProtocol ff_pipe_protocol = {
 
 #endif /* CONFIG_PIPE_PROTOCOL */
 
+#ifdef ANDROID
 extern int get_fd_from_content(const char *content, int access);
 static int saf_open(URLContext *h, const char *filename, int flags)
 {
@@ -466,3 +467,5 @@ const URLProtocol ff_saf_protocol = {
     .priv_data_size      = sizeof(FileContext),
     .priv_data_class     = &file_class
 };
+
+#endif // ANDROID
