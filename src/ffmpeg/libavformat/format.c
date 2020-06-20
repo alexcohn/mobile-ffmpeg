@@ -44,10 +44,15 @@ int av_match_ext(const char *filename, const char *extensions)
     if (!filename)
         return 0;
 
+#ifdef ANDROID
+    if (av_strstart(filename, "content:", NULL))
+        return match_ext_from_content(filename, extensions);
+#endif
+
     ext = strrchr(filename, '.');
     if (ext)
         return av_match_name(ext + 1, extensions);
-    return match_ext_from_content(filename, extensions);
+    return 0;
 }
 
 ff_const59 AVOutputFormat *av_guess_format(const char *short_name, const char *filename,

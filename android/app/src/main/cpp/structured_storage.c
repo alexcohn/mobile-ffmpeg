@@ -187,10 +187,11 @@ static int get_filename_from_content(const char *content, char filename[]) {
 }
 
 int match_ext_from_content(const char *content, const char *extensions) {
+// TODO: keep last content ptr and its filename cached (in TLS);
     char filename[PATH_MAX]; // = DocumentFile.fromSingleUri(appContext, contentUri).getName();
     if (get_filename_from_content(content, filename) != JNI_OK)
         return 0;
-    LOGD("recovered name '%s'", filename);
+    LOGD("recovered name '%s' for '%s'", filename, extensions);
     return av_match_ext(filename, extensions);
 }
 
