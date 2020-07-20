@@ -64,13 +64,13 @@ ENABLED_ARCHITECTURES=(1 1 1 1 1)
 ENABLED_LIBRARIES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)
 
 export BASEDIR=$(pwd)
-export MOBILE_FFMPEG_TMPDIR="${BASEDIR}/.tmp"
 
 # USING API LEVEL 24 / Android 7.0 (NOUGAT)
 export API=24
 
 RECONF_LIBRARIES=()
 REBUILD_LIBRARIES=()
+REDOWNLOAD_LIBRARIES=()
 
 get_mobile_ffmpeg_version() {
   local MOBILE_FFMPEG_VERSION=$(grep '#define MOBILE_FFMPEG_VERSION' ${BASEDIR}/android/app/src/main/cpp/mobileffmpeg.h | grep -Eo '\".*\"' | sed -e 's/\"//g')
@@ -101,7 +101,7 @@ When compilation ends an Android Archive (AAR) file is created under the prebuil
 
   echo -e "Licensing options:"
 
-  echo -e "  --enable-gpl\t\t\tallow use of GPL libraries, resulting libs will be licensed under GPLv3.0 [no]\n"
+  echo -e "  --enable-gpl\t\t\tallow use of GPL libraries, created libs will be licensed under GPLv3.0 [no]\n"
 
   echo -e "Platforms:"
 
@@ -157,6 +157,7 @@ When compilation ends an Android Archive (AAR) file is created under the prebuil
   echo -e "Advanced options:"
 
   echo -e "  --reconf-LIBRARY\t\trun autoreconf before building LIBRARY [no]"
+  echo -e "  --redownload-LIBRARY\t\tdownload LIBRARY even it is detected as already downloaded [no]"
   echo -e "  --rebuild-LIBRARY\t\tbuild LIBRARY even it is detected as already built [no]\n"
 }
 
@@ -245,6 +246,25 @@ rebuild_library() {
 
   if [[ ${library_supported} -eq 0 ]]; then
     echo -e "INFO: --rebuild flag detected for library $1 is not supported.\n" 1>>${BASEDIR}/build.log 2>&1
+  fi
+}
+
+redownload_library() {
+  local REDOWNLOAD_VARIABLE=$(echo "REDOWNLOAD_$1" | sed "s/\-/\_/g")
+  local library_supported=0
+
+  for library in {0..47}; do
+    library_name=$(get_library_name ${library})
+
+    if [[ $1 != "ffmpeg" ]] && [[ ${library_name} == $1 ]]; then
+      export ${REDOWNLOAD_VARIABLE}=1
+      REDOWNLOAD_LIBRARIES+=($1)
+      library_supported=1
+    fi
+  done
+
+  if [[ ${library_supported} -eq 0 ]]; then
+    echo -e "INFO: --redownload flag detected for library $1 is not supported.\n" 1>>${BASEDIR}/build.log 2>&1
   fi
 }
 
@@ -487,7 +507,7 @@ print_enabled_libraries() {
 
   let enabled=0
 
-  for library in 47 {45..46} {0..33}; do
+  for library in {45..47} {0..33}; do
     if [[ ${ENABLED_LIBRARIES[$library]} -eq 1 ]]; then
       if [[ ${enabled} -ge 1 ]]; then
         echo -n ", "
@@ -535,6 +555,26 @@ print_rebuild_requested_libraries() {
     fi
 
     echo -n ${REBUILD_LIBRARY}
+
+    counter=$((${counter} + 1))
+  done
+
+  if [[ ${counter} -gt 0 ]]; then
+    echo ""
+  fi
+}
+
+print_redownload_requested_libraries() {
+  local counter=0
+
+  for REDOWNLOAD_LIBRARY in "${REDOWNLOAD_LIBRARIES[@]}"; do
+    if [[ ${counter} -eq 0 ]]; then
+      echo -n "Redownload: "
+    else
+      echo -n ", "
+    fi
+
+    echo -n ${REDOWNLOAD_LIBRARY}
 
     counter=$((${counter} + 1))
   done
@@ -651,6 +691,11 @@ while [ ! $# -eq 0 ]; do
 
     rebuild_library ${BUILD_LIBRARY}
     ;;
+  --redownload-*)
+    DOWNLOAD_LIBRARY=$(echo $1 | sed -e 's/^--[A-Za-z]*-//g')
+
+    redownload_library ${DOWNLOAD_LIBRARY}
+    ;;
   --full)
     BUILD_FULL="1"
     ;;
@@ -731,8 +776,9 @@ print_enabled_architectures
 print_enabled_libraries
 print_reconfigure_requested_libraries
 print_rebuild_requested_libraries
+print_redownload_requested_libraries
 
-# CHECKING GPL LIBRARIES
+# CHECK GPL LIBRARIES
 for gpl_library in {18,19,20,21,22}; do
   if [[ ${ENABLED_LIBRARIES[$gpl_library]} -eq 1 ]]; then
     library_name=$(get_library_name ${gpl_library})

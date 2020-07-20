@@ -22,7 +22,6 @@ package com.arthenica.mobileffmpeg.test;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 import android.text.method.ScrollingMovementMethod;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
@@ -40,8 +39,6 @@ import com.arthenica.mobileffmpeg.FFprobe;
 import com.arthenica.mobileffmpeg.LogCallback;
 import com.arthenica.mobileffmpeg.LogMessage;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.concurrent.Callable;
 
 import static android.app.Activity.RESULT_OK;
@@ -130,17 +127,7 @@ public class ScopedStorageTabFragment extends Fragment {
     private void runFFprobe() {
         clearLog();
 
-        int fd = -1;
-        try {
-            ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
-
-            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
-            fd = parcelFileDescriptor.getFd();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
-        }
-
-        final String ffprobeCommand = "-hide_banner \"saf:" + fd + "/" + videoUri.getLastPathSegment() + "\"";
+        final String ffprobeCommand = "-hide_banner " + videoUri;
 
         Log.d(MainActivity.TAG, "Testing FFprobe COMMAND synchronously.");
 
@@ -159,27 +146,9 @@ public class ScopedStorageTabFragment extends Fragment {
     private void runTranscode() {
         clearLog();
 
-        String inFilename = "", outFilename = "";
-        ParcelFileDescriptor parcelFileDescriptor;
-        try {
-            parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
+        Log.d(MainActivity.TAG, "Testing transcode(" + videoUri + ", " + outUri + ")");
 
-            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
-            inFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + videoUri.getLastPathSegment();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
-        }
-
-        try {
-            parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(outUri, "w");
-            outFilename = "saf:" + parcelFileDescriptor.getFd() + "/" + outUri.getLastPathSegment();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + outUri, e);
-        }
-
-        Log.d(MainActivity.TAG, "Testing transcode(" + inFilename + ", " + outFilename + ")");
-
-        int result = Config.runTranscode(inFilename, outFilename);
+        int result = Config.runTranscode(videoUri.toString(), outUri.toString());
 
         Log.d(MainActivity.TAG, String.format("Transcode exited with rc %d", result));
 

@@ -35,12 +35,19 @@
  * Format register and lookup
  */
 
+extern int match_ext_from_content(const char *filename, const char *extensions);
+
 int av_match_ext(const char *filename, const char *extensions)
 {
     const char *ext;
 
     if (!filename)
         return 0;
+
+#ifdef ANDROID
+    if (av_strstart(filename, "content:", NULL))
+        return match_ext_from_content(filename, extensions);
+#endif
 
     ext = strrchr(filename, '.');
     if (ext)
