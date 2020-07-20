@@ -137,11 +137,11 @@ int get_global_app_context(JNIEnv *env) {
     } finally {
       cursor.close();
     }
-
- * note: it's OK not to call cursor.close() for cleanup, because it is
 **/
 
-static int get_filename_from_content(const char *content, char filename[]) {
+static int get_filename_from_content(const char *content, char **filename) {
+
+    *filename = NULL;
 
     if (!android_content_ContentResolver_global_instance) {
         LOGE_NL("have not initialized %s instance", "android.content.ContentResolver");
@@ -179,20 +179,30 @@ static int get_filename_from_content(const char *content, char filename[]) {
     const char *c_str = (*env)->GetStringUTFChars(env, j_str, 0);
     JNI_CHECK(c_str, "GetStringUTFChars %p", j_str);
 
-    strncpy(filename, c_str, PATH_MAX);
+    LOGD("get_filename_from_content " "recovered name '%s' from '%s'", c_str, content);
+    *filename = strdup(c_str);
+
     (*env)->ReleaseStringUTFChars(env, j_str, c_str);
 
     (*env)->PopLocalFrame(env, NULL);
     return JNI_OK;
 }
 
+__thread char *last_content = NULL;
+__thread char *last_filename = NULL;
+
 int match_ext_from_content(const char *content, const char *extensions) {
-// TODO: keep last content ptr and its filename cached (in TLS);
-    char filename[PATH_MAX]; // = DocumentFile.fromSingleUri(appContext, contentUri).getName();
-    if (get_filename_from_content(content, filename) != JNI_OK)
+    if (last_content && strcmp(last_content, content) == 0) {
+        return av_match_ext(last_filename, extensions);
+    }
+    if (last_content)
+        free(last_content);
+    last_content = strdup(content);
+    if (last_filename)
+        free(last_filename);
+    if (get_filename_from_content(content, &last_filename) != JNI_OK)
         return 0;
-    LOGD("recovered name '%s' for '%s'", filename, extensions);
-    return av_match_ext(filename, extensions);
+    return av_match_ext(last_filename, extensions);
 }
 
 int get_fd_from_content(const char *content, int access) {
@@ -256,7 +266,7 @@ int get_fd_from_content(const char *content, int access) {
         fmode = "w";
     }
 
-    LOGI("get_fd_from_content" " \"%s\" fd from %s", fmode, content);
+    LOGD("get_fd_from_content" " try \"%s\" for \"%s\"", content, fmode);
 
     jstring uriString = (*env)->NewStringUTF(env, content);
     JNI_CHECK(uriString, "%s", content);
@@ -272,6 +282,8 @@ int get_fd_from_content(const char *content, int access) {
 
     fd = (*env)->CallIntMethod(env, parcelFileDescriptor, android_os_ParcelFileDescriptor_getFd);
     JNI_CHECK(fd >= 0, "%p", parcelFileDescriptor);
+
+    LOGI("get_fd_from_content" " opened \"%s\" for \"%s\" as  %d", fmode, content, fd);
 
     (*env)->PopLocalFrame(env, NULL);
     return dup(fd);
