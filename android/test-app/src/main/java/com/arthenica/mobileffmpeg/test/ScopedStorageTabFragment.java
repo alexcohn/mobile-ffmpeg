@@ -42,7 +42,6 @@ import com.arthenica.mobileffmpeg.FFprobe;
 import com.arthenica.mobileffmpeg.LogCallback;
 import com.arthenica.mobileffmpeg.LogMessage;
 
-import java.io.IOException;
 import java.util.concurrent.Callable;
 
 import static android.app.Activity.RESULT_OK;
