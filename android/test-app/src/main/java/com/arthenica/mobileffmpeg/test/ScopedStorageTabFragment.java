@@ -20,11 +20,8 @@
 package com.arthenica.mobileffmpeg.test;
 
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
-import android.provider.DocumentsContract;
 import android.text.method.ScrollingMovementMethod;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
@@ -50,7 +47,7 @@ public class ScopedStorageTabFragment extends Fragment {
 
     private EditText commandText;
     private TextView outputText;
-    private Uri videoUri;
+    private Uri inUri;
     private Uri outUri;
     private static final int REQUEST_SAF_FFPROBE = 11;
     private static final int REQUEST_SAF_TRANSCODE_IN = 12;
@@ -132,30 +129,7 @@ public class ScopedStorageTabFragment extends Fragment {
     private void runFFprobe() {
         clearLog();
 
-        String displayName = "unknown";
-        Cursor cursor = getContext().getContentResolver().query(videoUri, null, null, null, null);
-        try {
-            if (cursor != null && cursor.moveToFirst()) {
-                displayName = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME));
-            }
-        } catch (Throwable ex) {
-            Log.e(MainActivity.TAG, "failed to get column", ex);
-        } finally {
-            if (cursor != null)
-                cursor.close();
-        }
-
-        int fd = -1;
-        try {
-            ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
-
-            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize() + " filename: " + displayName);
-            fd = parcelFileDescriptor.detachFd();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
-        }
-
-        final String ffprobeCommand = "-hide_banner file:/proc/self/" + fd + "/" + displayName;
+        final String ffprobeCommand = "-hide_banner " + Config.getCommandParameter(getContext(), inUri);
 
         Log.d(MainActivity.TAG, "Testing FFprobe COMMAND synchronously.");
 
@@ -168,53 +142,22 @@ public class ScopedStorageTabFragment extends Fragment {
         if (result != 0) {
             Popup.show(requireContext(), "Command failed. Please check output for the details.");
         }
-        videoUri = null;
+        inUri = null;
     }
 
     private void runTranscode() {
         clearLog();
 
-        Log.d(MainActivity.TAG, "Testing transcode(" + videoUri + ", " + outUri + ")");
+        Log.d(MainActivity.TAG, "Testing transcode(" + inUri + ", " + outUri + ")");
 
-        String displayName = "unknown";
-        Cursor cursor = getContext().getContentResolver().query(outUri, null, null, null, null);
-        try {
-            if (cursor != null && cursor.moveToFirst()) {
-                displayName = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME));
-            }
-        } catch (Throwable ex) {
-            Log.e(MainActivity.TAG, "failed to get column", ex);
-        } finally {
-            if (cursor != null)
-                cursor.close();
-        }
-
-        int fdin = -1;
-        try {
-            ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(videoUri, "r");
-            Log.d(MainActivity.TAG, videoUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
-            fdin = parcelFileDescriptor.detachFd();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
-        }
-
-        int fdout = -1;
-        try {
-            ParcelFileDescriptor parcelFileDescriptor = getContext().getContentResolver().openFileDescriptor(outUri, "w");
-            Log.d(MainActivity.TAG, outUri.toString() + " size: " + parcelFileDescriptor.getStatSize());
-            fdout = parcelFileDescriptor.detachFd();
-        } catch (Throwable e) {
-            Log.e(MainActivity.TAG, "obtaining ParcelFileDescriptor for " + videoUri, e);
-        }
-
-        int result = Config.runTranscode("file:/proc/self/" + fdin, "file:/proc/self/" + fdout + "/" + displayName);
+        int result = Config.runTranscode(Config.getCommandParameter(getContext(), inUri), Config.getCommandParameter(getContext(), outUri));
         Log.d(MainActivity.TAG, String.format("Transcode exited with rc %d", result));
 
         if (result != 0) {
             Popup.show(requireContext(), "Command failed. Please check output for the details.");
         }
 
-        videoUri = outUri;
+        inUri = outUri;
         outUri = null;
         if (result == 0) {
             runFFprobe();
@@ -237,10 +180,10 @@ public class ScopedStorageTabFragment extends Fragment {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_SAF_FFPROBE && resultCode == RESULT_OK && data != null) {
-            videoUri = data.getData();
+            inUri = data.getData();
             runFFprobe();
         } else if (requestCode == REQUEST_SAF_TRANSCODE_IN && resultCode == RESULT_OK && data != null) {
-            videoUri = data.getData();
+            inUri = data.getData();
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
                     .setType("audio/*")
                     .putExtra(Intent.EXTRA_TITLE, "transcode.aac")

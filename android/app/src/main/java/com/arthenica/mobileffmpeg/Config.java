@@ -20,7 +20,11 @@
 package com.arthenica.mobileffmpeg;
 
 import android.content.Context;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
+import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.util.Log;
 
 import java.io.File;
@@ -754,6 +758,32 @@ public class Config {
      * @param signum signal number
      */
     private native static void ignoreNativeSignal(final int signum);
+
+    public static String getCommandParameter(Context context, Uri uri) {
+
+        String displayName = "unknown";
+        Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                displayName = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME));
+            }
+        } catch (Throwable ex) {
+            Log.e(TAG, "failed to get column", ex);
+        } finally {
+            if (cursor != null)
+                cursor.close();
+        }
+
+        int fd = -1;
+        try {
+            ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, "r");
+            fd = parcelFileDescriptor.detachFd();
+        } catch (Throwable e) {
+            Log.e(TAG, "obtaining ParcelFileDescriptor for " + uri, e);
+        }
+
+        return "file:/proc/self/" + fd + "/" + displayName;
+    }
 
     /**
      * <p>Run transcode_aac from doc/examples.
