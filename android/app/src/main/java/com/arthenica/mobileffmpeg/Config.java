@@ -755,4 +755,13 @@ public class Config {
      */
     private native static void ignoreNativeSignal(final int signum);
 
+    /**
+     * <p>Run transcode_aac from doc/examples.
+     *
+     * @param inFilename  environment variable name
+     * @param outFilename environment variable value
+     * @return zero if transcoding was successfull
+     */
+    public native static int runTranscode(final String inFilename, final String outFilename);
+
 }
