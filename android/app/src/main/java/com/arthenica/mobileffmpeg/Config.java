@@ -762,10 +762,12 @@ public class Config {
     public static String getCommandParameter(Context context, Uri uri) {
 
         String displayName = "unknown";
-        Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+        int flags = 0;
+        final Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         try {
             if (cursor != null && cursor.moveToFirst()) {
                 displayName = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME));
+                flags = cursor.getInt(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_FLAGS));
             }
         } catch (Throwable ex) {
             Log.e(TAG, "failed to get column", ex);
@@ -774,12 +776,13 @@ public class Config {
                 cursor.close();
         }
 
+        final String openMode = (flags & DocumentsContract.Document.FLAG_SUPPORTS_WRITE) == 0 ? "r" : "rw";
         int fd = -1;
         try {
-            ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, "r");
+            ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, openMode);
             fd = parcelFileDescriptor.detachFd();
         } catch (Throwable e) {
-            Log.e(TAG, "obtaining ParcelFileDescriptor for " + uri, e);
+            Log.e(TAG, "obtaining " + openMode + " ParcelFileDescriptor for " + uri, e);
         }
 
         return "file:/proc/self/" + fd + "/" + displayName;
