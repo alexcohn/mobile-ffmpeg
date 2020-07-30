@@ -784,6 +784,14 @@ public class Config {
         } catch (Throwable e) {
             Log.e(TAG, "obtaining " + openMode + " ParcelFileDescriptor for " + uri, e);
         }
+        if (fd == -1 && openMode.equals("rw")) { // as Mark Murfy noticed (https://issuetracker.google.com/issues/133539340), we cannot trust FLAG_SUPPORTS_WRITE
+            try {
+                ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, "r");
+                fd = parcelFileDescriptor.detachFd();
+            } catch (Throwable e) {
+                Log.e(TAG, "obtaining r ParcelFileDescriptor for " + uri, e);
+            }
+        }
 
         return "saf:" + fd + "/" + displayName;
     }
