@@ -785,7 +785,7 @@ public class Config {
             Log.e(TAG, "obtaining " + openMode + " ParcelFileDescriptor for " + uri, e);
         }
 
-        return "file:/proc/self/" + fd + "/" + displayName;
+        return "saf:" + fd + "/" + displayName;
     }
 
     /**

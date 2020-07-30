@@ -43,6 +43,7 @@ else ifeq ($(TARGET_PLATFORM),android-17)
 else
     LOCAL_SRC_FILES := mobileffmpeg.c mobileffprobe.c mobileffmpeg_exception.c fftools_cmdutils.c fftools_ffmpeg.c fftools_ffprobe.c fftools_ffmpeg_opt.c fftools_ffmpeg_hw.c fftools_ffmpeg_filter.c
 endif
+LOCAL_SRC_FILES += saf_wrapper.c
 LOCAL_SRC_FILES += doc_examples_transcode_aac.c
 LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter -Wno-switch -Wno-sign-compare
 LOCAL_LDLIBS := -llog -lz -landroid

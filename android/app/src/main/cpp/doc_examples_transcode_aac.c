@@ -43,6 +43,8 @@
 
 #include "libswresample/swresample.h"
 
+#include "saf_wrapper.h"
+
 #include "mobileffmpeg.h" // LOGx
 static int audio_stream_idx = -1;
 
