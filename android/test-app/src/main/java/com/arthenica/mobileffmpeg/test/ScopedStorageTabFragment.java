@@ -129,7 +129,7 @@ public class ScopedStorageTabFragment extends Fragment {
     private void runFFprobe() {
         clearLog();
 
-        final String ffprobeCommand = "-hide_banner " + Config.getCommandParameter(getContext(), inUri);
+        final String ffprobeCommand = "-hide_banner -print_format json -show_format -show_streams \"" + Config.getCommandParameter(getContext(), inUri) + "\"";
 
         Log.d(MainActivity.TAG, "Testing FFprobe COMMAND synchronously.");
 
@@ -148,7 +148,7 @@ public class ScopedStorageTabFragment extends Fragment {
     private void runTranscode() {
         clearLog();
 
-        Log.d(MainActivity.TAG, "Testing transcode(" + inUri + ", " + outUri + ")");
+        Log.d(MainActivity.TAG, "Testing transcode('" + inUri + "', '" + outUri + "')");
 
         int result = Config.runTranscode(Config.getCommandParameter(getContext(), inUri), Config.getCommandParameter(getContext(), outUri));
         Log.d(MainActivity.TAG, String.format("Transcode exited with rc %d", result));
