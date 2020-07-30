@@ -43,7 +43,7 @@
 
 #include "libswresample/swresample.h"
 
-#include "mobileffmpeg.h"
+#include "mobileffmpeg.h" // LOGx
 static int audio_stream_idx = -1;
 
 /* The output bit rate in bit/s */
@@ -178,9 +178,10 @@ static int open_output_file(const char *filename,
     /* Guess the desired container format based on the file extension. */
     if (!((*output_format_context)->oformat = av_guess_format(NULL, filename,
                                                               NULL))) {
-        LOGE("Could not find output file format\n");
+        LOGE("Could not find output file format for '%s'\n", filename);
         goto cleanup;
     }
+    LOGI("output file format for '%s': '%s'\n", filename, (*output_format_context)->oformat->name);
 
     if (!((*output_format_context)->url = av_strdup(filename))) {
         LOGE("Could not allocate url.\n");
@@ -276,7 +277,7 @@ static void init_packet(AVPacket *packet)
 static int init_input_frame(AVFrame **frame)
 {
     if (!(*frame = av_frame_alloc())) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate input frame\n");
+        LOGE("Could not allocate input frame\n");
         return AVERROR(ENOMEM);
     }
     return 0;
@@ -313,7 +314,7 @@ static int init_resampler(AVCodecContext *input_codec_context,
                                               input_codec_context->sample_rate,
                                               0, NULL);
         if (!*resample_context) {
-            __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate resample context\n");
+            LOGE("Could not allocate resample context\n");
             return AVERROR(ENOMEM);
         }
         /*
@@ -325,7 +326,7 @@ static int init_resampler(AVCodecContext *input_codec_context,
 
         /* Open the resampler with the specified parameters. */
         if ((error = swr_init(*resample_context)) < 0) {
-            __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not open resample context\n");
+            LOGE("Could not open resample context\n");
             swr_free(resample_context);
             return error;
         }
@@ -343,7 +344,7 @@ static int init_fifo(AVAudioFifo **fifo, AVCodecContext *output_codec_context)
     /* Create the FIFO buffer based on the specified output sample format. */
     if (!(*fifo = av_audio_fifo_alloc(output_codec_context->sample_fmt,
                                       output_codec_context->channels, 1))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate FIFO\n");
+        LOGE("Could not allocate FIFO\n");
         return AVERROR(ENOMEM);
     }
     return 0;
@@ -358,7 +359,7 @@ static int write_output_file_header(AVFormatContext *output_format_context)
 {
     int error;
     if ((error = avformat_write_header(output_format_context, NULL)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not write output file header (error '%s')\n",
+        LOGE("Could not write output file header (error '%s')\n",
                 av_err2str(error));
         return error;
     }
@@ -394,7 +395,7 @@ static int decode_audio_frame(AVFrame *frame,
         if (error == AVERROR_EOF)
             *finished = 1;
         else {
-            __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not read frame (error '%s')\n",
+            LOGW("Could not read frame (error '%s')\n",
                     av_err2str(error));
             return error;
         }
@@ -407,7 +408,7 @@ static int decode_audio_frame(AVFrame *frame,
     /* Send the audio frame stored in the temporary packet to the decoder.
      * The input audio stream decoder is used to do this. */
     if ((error = avcodec_send_packet(input_codec_context, &input_packet)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not send packet for decoding (error '%s')\n",
+        LOGE("Could not send packet for decoding (error '%s')\n",
                 av_err2str(error));
         return error;
     }
@@ -425,7 +426,7 @@ static int decode_audio_frame(AVFrame *frame,
         error = 0;
         goto cleanup;
     } else if (error < 0) {
-        __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not decode frame (error '%s')\n",
+        LOGW("Could not decode frame (error '%s')\n",
                 av_err2str(error));
         goto cleanup;
     /* Default case: Return decoded data. */
@@ -463,7 +464,7 @@ static int init_converted_samples(uint8_t ***converted_input_samples,
      */
     if (!(*converted_input_samples = calloc(output_codec_context->channels,
                                             sizeof(**converted_input_samples)))) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not allocate converted input sample pointers\n");
+        LOGE("Could not allocate converted input sample pointers\n");
         return AVERROR(ENOMEM);
     }
 
@@ -473,8 +474,7 @@ static int init_converted_samples(uint8_t ***converted_input_samples,
                                   output_codec_context->channels,
                                   frame_size,
                                   output_codec_context->sample_fmt, 0)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac",
-                "Could not allocate converted input samples (error '%s')\n",
+        LOGE("Could not allocate converted input samples (error '%s')\n",
                 av_err2str(error));
         av_freep(&(*converted_input_samples)[0]);
         free(*converted_input_samples);
@@ -505,7 +505,7 @@ static int convert_samples(const uint8_t **input_data,
     if ((error = swr_convert(resample_context,
                              converted_data, frame_size,
                              input_data    , frame_size)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not convert input samples (error '%s')\n",
+        LOGE("Could not convert input samples (error '%s')\n",
                 av_err2str(error));
         return error;
     }
@@ -530,14 +530,14 @@ static int add_samples_to_fifo(AVAudioFifo *fifo,
     /* Make the FIFO as large as it needs to be to hold both,
      * the old and the new samples. */
     if ((error = av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + frame_size)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not reallocate FIFO\n");
+        LOGE("Could not reallocate FIFO\n");
         return error;
     }
 
     /* Store the new samples in the FIFO buffer. */
     if (av_audio_fifo_write(fifo, (void **)converted_input_samples,
                             frame_size) < frame_size) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not write data to FIFO\n");
+        LOGE("Could not write data to FIFO\n");
         return AVERROR_EXIT;
     }
     return 0;
@@ -634,7 +634,7 @@ static int init_output_frame(AVFrame **frame,
 
     /* Create a new frame to store the audio samples. */
     if (!(*frame = av_frame_alloc())) {
-        __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not allocate output frame\n");
+        LOGW("Could not allocate output frame\n");
         return AVERROR_EXIT;
     }
 
@@ -651,7 +651,7 @@ static int init_output_frame(AVFrame **frame,
     /* Allocate the samples of the created frame. This call will make
      * sure that the audio frame can hold as many samples as specified. */
     if ((error = av_frame_get_buffer(*frame, 0)) < 0) {
-        __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not allocate output frame samples (error '%s')\n",
+        LOGW("Could not allocate output frame samples (error '%s')\n",
                 av_err2str(error));
         av_frame_free(frame);
         return error;
@@ -696,7 +696,7 @@ static int encode_audio_frame(AVFrame *frame,
         error = 0;
         goto cleanup;
     } else if (error < 0) {
-        __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not send packet for encoding (error '%s')\n",
+        LOGW("Could not send packet for encoding (error '%s')\n",
                 av_err2str(error));
         return error;
     }
@@ -713,7 +713,7 @@ static int encode_audio_frame(AVFrame *frame,
         error = 0;
         goto cleanup;
     } else if (error < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not encode frame (error '%s')\n",
+        LOGE("Could not encode frame (error '%s')\n",
                 av_err2str(error));
         goto cleanup;
     /* Default case: Return encoded data. */
@@ -724,7 +724,7 @@ static int encode_audio_frame(AVFrame *frame,
     /* Write one audio frame from the temporary packet to the output file. */
     if (*data_present &&
         (error = av_write_frame(output_format_context, &output_packet)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not write frame (error '%s')\n",
+        LOGE("Could not write frame (error '%s')\n",
                 av_err2str(error));
         goto cleanup;
     }
@@ -762,7 +762,7 @@ static int load_encode_and_write(AVAudioFifo *fifo,
     /* Read as many samples from the FIFO buffer as required to fill the frame.
      * The samples are stored in the frame temporarily. */
     if (av_audio_fifo_read(fifo, (void **)output_frame->data, frame_size) < frame_size) {
-        __android_log_print(ANDROID_LOG_WARN, "transcode_aac", "Could not read data from FIFO\n");
+        LOGW("Could not read data from FIFO\n");
         av_frame_free(&output_frame);
         return AVERROR_EXIT;
     }
@@ -786,7 +786,7 @@ static int write_output_file_trailer(AVFormatContext *output_format_context)
 {
     int error;
     if ((error = av_write_trailer(output_format_context)) < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "transcode_aac", "Could not write output file trailer (error '%s')\n",
+        LOGE("Could not write output file trailer (error '%s')\n",
                 av_err2str(error));
         return error;
     }
@@ -804,7 +804,7 @@ JNIEXPORT int JNICALL Java_com_arthenica_mobileffmpeg_Config_runTranscode(JNIEnv
     const char *in_filename = (*env)->GetStringUTFChars(env, inFilename, 0);
     const char *out_filename = (*env)->GetStringUTFChars(env, outFilename, 0);
 
-    __android_log_print(ANDROID_LOG_INFO, "transcode_aac", "%s %s\n", in_filename, out_filename);
+    LOGI("'%s', '%s'\n", in_filename, out_filename);
 
     /* Open the input file for reading. */
     if (open_input_file(in_filename, &input_format_context,
