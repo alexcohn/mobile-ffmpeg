@@ -33,7 +33,6 @@
 #undef avformat_close_input
 #undef avio_open
 #undef avformat_open_input
-#undef av_guess_format
 
 static int fd_read_packet(void* opaque, uint8_t* buf, int buf_size) {
     int fd = (int)opaque;
@@ -90,11 +89,11 @@ static AVIOContext *maybe_get_fd_avio_context(const char *filename, int write_fl
     return NULL;
 }
 
-static void release_fd_avio_context(AVIOContext *ctx) {
-    if (fd_seek(ctx->opaque, 0, AVSEEK_SIZE) >= 0) {
-        LOGD("release_fd_avio_context %p->%d\n", ctx, (int)ctx->opaque);
-        close((int)ctx->opaque);
-        ctx->opaque = NULL;
+static void release_fd_avio_contextp(AVIOContext **ctx) {
+    if (fd_seek((*ctx)->opaque, 0, AVSEEK_SIZE) >= 0) {
+        LOGD("release_fd_avio_context %p->%d\n", *ctx, (int)(*ctx)->opaque);
+        close((int)(*ctx)->opaque);
+        *ctx = NULL;
     }
 }
 
@@ -123,15 +122,4 @@ void android_avformat_close_input(AVFormatContext **ps) {
     release_fd_avio_context((*ps)->pb);
     (*ps)->pb = NULL;
     avformat_close_input(ps);
-}
-
-// workaround for https://issuetracker.google.com/issues/162440528
-// ANDROID_CREATE_DOCUMENT generating file names like "transcode.mp3 (2)"
-AVOutputFormat *fix_guess_format(const char *short_name, const char *filename, const char *mime_type) {
-    char *filename_with_extension = av_strdup(filename);
-    if (strrchr(filename_with_extension, ' '))
-        *strrchr(filename_with_extension, ' ') = '\0';
-    AVOutputFormat *res = av_guess_format(short_name, filename_with_extension, mime_type);
-    av_free(filename_with_extension);
-    return res;
 }

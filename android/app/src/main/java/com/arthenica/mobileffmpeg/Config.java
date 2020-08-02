@@ -793,6 +793,10 @@ public class Config {
             }
         }
 
+        // workaround for https://issuetracker.google.com/issues/162440528: ANDROID_CREATE_DOCUMENT generating file names like "transcode.mp3 (2)"
+        if (displayName.lastIndexOf(' ') > displayName.lastIndexOf('.')) {
+            displayName = displayName.substring(0, displayName.lastIndexOf(' '));
+        }
         return "saf:" + fd + "/" + displayName;
     }
 

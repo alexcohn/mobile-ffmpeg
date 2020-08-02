@@ -39,11 +39,4 @@ int android_avformat_open_input(AVFormatContext **ps, const char *filename,
                         ff_const59 AVInputFormat *fmt, AVDictionary **options);
 #define avformat_open_input android_avformat_open_input
 
-// workaround for https://issuetracker.google.com/issues/162440528
-// ANDROID_CREATE_DOCUMENT generating file names like "transcode.mp3 (2)"
-AVOutputFormat *fix_guess_format(const char *short_name,
-                                const char *filename,
-                                const char *mime_type);
-#define av_guess_format fix_guess_format
-
 #endif //MOBILE_FFMPEG_SAF_WRAPPER_H
