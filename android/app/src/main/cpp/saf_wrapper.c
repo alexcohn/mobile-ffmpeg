@@ -32,6 +32,7 @@
 #undef avio_closep
 #undef avformat_close_input
 #undef avio_open
+#undef avio_open2
 #undef avformat_open_input
 
 static int fd_read_packet(void* opaque, uint8_t* buf, int buf_size) {
@@ -46,9 +47,13 @@ static int fd_write_packet(void* opaque, uint8_t* buf, int buf_size) {
 
 static int64_t fd_seek(void *opaque, int64_t offset, int whence) {
     int fd = (int)opaque;
-    int64_t ret;
 
+    if (fd < 0) {
+        return AVERROR(EINVAL);
+    }
     LOGD("fd_seek fd=%d %lld %d\n", fd, (long long)offset, whence);
+
+    int64_t ret;
     if (whence == AVSEEK_SIZE) {
         struct stat st;
         ret = fstat(fd, &st);
@@ -107,19 +112,27 @@ int android_avformat_open_input(AVFormatContext **ps, const char *filename,
     return avformat_open_input(ps, filename, fmt, options);
 }
 
-int android_avio_open(AVIOContext **s, const char *url, int flags) {
-    if ((*s = maybe_get_fd_avio_context(url, (flags & AVIO_FLAG_WRITE) != 0 ? 1 : 0)))
+int android_avio_open2(AVIOContext **s, const char *filename, int flags,
+               const AVIOInterruptCB *int_cb, AVDictionary **options) {
+    if ((*s = maybe_get_fd_avio_context(filename, (flags & AVIO_FLAG_WRITE) != 0 ? 1 : 0))) {
+        // for saf: pseudo-protocol, int_cb is silently ignored
         return 0;
-    return avio_open(s, url, flags);
+    }
+    return avio_open2(s, filename, flags, int_cb, options);
+}
+
+int android_avio_open(AVIOContext **s, const char *url, int flags) {
+    return android_avio_open2(s, url, flags, NULL, NULL);
 }
 
 int android_avio_closep(AVIOContext **s) {
-    release_fd_avio_context(*s);
+    release_fd_avio_contextp(s);
     return avio_closep(s);
 }
 
 void android_avformat_close_input(AVFormatContext **ps) {
-    release_fd_avio_context((*ps)->pb);
-    (*ps)->pb = NULL;
+    if (*ps && (*ps)->pb) {
+        release_fd_avio_contextp(&(*ps)->pb);
+    }
     avformat_close_input(ps);
 }

@@ -35,6 +35,10 @@ void android_avformat_close_input(AVFormatContext **s);
 int android_avio_open(AVIOContext **s, const char *url, int flags);
 #define avio_open android_avio_open
 
+int android_avio_open2(AVIOContext **s, const char *url, int flags,
+               const AVIOInterruptCB *int_cb, AVDictionary **options);
+#define avio_open2 android_avio_open2
+
 int android_avformat_open_input(AVFormatContext **ps, const char *filename,
                         ff_const59 AVInputFormat *fmt, AVDictionary **options);
 #define avformat_open_input android_avformat_open_input
