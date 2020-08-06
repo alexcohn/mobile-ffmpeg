@@ -759,15 +759,18 @@ public class Config {
      */
     private native static void ignoreNativeSignal(final int signum);
 
-    public static String getCommandParameter(Context context, Uri uri) {
+    /**
+     * <p>Convert Structured Access Framework Uri (<code></code>"content:…"</code>) for MobileFfmpeg.
+     *
+     * @return String can be passed to FFmpeg or FFprobe
+     */
+    private static String getSafParameter(Context context, Uri uri, String openMode) {
 
         String displayName = "unknown";
-        int flags = 0;
         final Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
         try {
             if (cursor != null && cursor.moveToFirst()) {
                 displayName = cursor.getString(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME));
-                flags = cursor.getInt(cursor.getColumnIndex(DocumentsContract.Document.COLUMN_FLAGS));
             }
         } catch (Throwable ex) {
             Log.e(TAG, "failed to get column", ex);
@@ -776,7 +779,6 @@ public class Config {
                 cursor.close();
         }
 
-        final String openMode = (flags & DocumentsContract.Document.FLAG_SUPPORTS_WRITE) == 0 ? "r" : "rw";
         int fd = -1;
         try {
             ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, openMode);
@@ -784,20 +786,20 @@ public class Config {
         } catch (Throwable e) {
             Log.e(TAG, "obtaining " + openMode + " ParcelFileDescriptor for " + uri, e);
         }
-        if (fd == -1 && openMode.equals("rw")) { // as Mark Murfy noticed (https://issuetracker.google.com/issues/133539340), we cannot trust FLAG_SUPPORTS_WRITE
-            try {
-                ParcelFileDescriptor parcelFileDescriptor = context.getContentResolver().openFileDescriptor(uri, "r");
-                fd = parcelFileDescriptor.detachFd();
-            } catch (Throwable e) {
-                Log.e(TAG, "obtaining r ParcelFileDescriptor for " + uri, e);
-            }
-        }
 
         // workaround for https://issuetracker.google.com/issues/162440528: ANDROID_CREATE_DOCUMENT generating file names like "transcode.mp3 (2)"
         if (displayName.lastIndexOf(' ') > displayName.lastIndexOf('.')) {
             displayName = displayName.substring(0, displayName.lastIndexOf(' '));
         }
-        return "saf:" + fd + "/" + displayName;
+        return "\"saf:" + fd + "/" + displayName + "\"";
+    }
+
+    public static String getSafParameterForRead(Context context, Uri uri) {
+        return getSafParameter(context, uri, "r");
+    }
+
+    public static String getSafParameterForReadAndWrite(Context context, Uri uri) {
+        return getSafParameter(context, uri, "rw");
     }
 
     /**
